@@ -11,7 +11,7 @@
 
 
 
-function [Fmat, Fmat_list, obj_seq, EY_list, rho_seq] = SpectralGBR(Y, As, K, rho, beta, iter_max, fixedStepSize)
+function [Fmat, Fmat_list, obj_seq, EY_list, rho_seq] = SpectralGBR(Y, As, K, rho, beta, iter_max, fixedStepSize, lambda, LR)
     if nargin < 7
         fixedStepSize = false; % Default value if not specified
     end
@@ -22,7 +22,7 @@ function [Fmat, Fmat_list, obj_seq, EY_list, rho_seq] = SpectralGBR(Y, As, K, rh
     N = length(Y);
     p = size(As, 1);
     Fmat = zeros(p, p);
-    [loss, grad] = LossAndGradient(Y, As, Fmat);
+    [loss, grad] = LossAndGradient(Y, As, Fmat, lambda, LR);
     obj_seq = inf(1, iter_max);
     obj_seq(1) = loss;
     rho_seq = zeros(1, iter_max);
@@ -40,7 +40,7 @@ function [Fmat, Fmat_list, obj_seq, EY_list, rho_seq] = SpectralGBR(Y, As, K, rh
             projected_grad = SpectralPart(grad, K); % Needs implementation
             candidate_Fmat = Fmat - rho * projected_grad;
             candidate_Fmat = (candidate_Fmat + candidate_Fmat') / 2;
-            [candidate_loss, candidate_grad] = LossAndGradient(Y, As, candidate_Fmat);
+            [candidate_loss, candidate_grad] = LossAndGradient(Y, As, candidate_Fmat, lambda, LR);
             
             if candidate_loss < loss || fixedStepSize
                 step_size_OK = true;

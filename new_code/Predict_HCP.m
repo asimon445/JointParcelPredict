@@ -6,23 +6,28 @@ clear;
 %% Setup the data for predictions
 load('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/HCP_IQ.mat');
 
-cpath = '/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/voxelwise_connmats/';
-cfiles = dir([cpath 'HCP_*_4vox.mat']);
+cpath = '/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/compare_to_shen368/';
+cfiles = dir([cpath 'HCP_*.mat']);
+
+load('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/compare_to_shen368/neighbormat.mat');
+load('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/compare_to_shen368/total_neighbors.mat');
+
+LR = total_neighbors - neighbormat;
 
 ix=0;
-for f = 1:length(cfiles)
+for f = 1:500   % length(cfiles)
 
-    load([cfiles(f).folder '/' cfiles(f).name]);
-    As(:,:,f) = connmat;
-    clear connmat
-
-    % pull IQ data from only the participants with connectomes
+    % pull IQ data from only the participants with connectomes and load
+    % their connectomes
     for ff = 1:length(HCP_IQ)
         samesub = strcmp(cfiles(f).name(5:10),num2str(HCP_IQ(ff,1)));
         
         if samesub == 1
             ix=ix+1;
             Y(ix,1) = HCP_IQ(ff,2);
+            load([cfiles(f).folder '/' cfiles(f).name]);
+            As(:,:,ix) = connmat;
+            clear connmat
             fprintf('%d ',ix);
         end
     end
@@ -38,49 +43,56 @@ iter_max = 100;
 fixedStepSize = false;
 
 nfolds = 2;
-nperms = 1;
+nperms = 10;
 
-for p = 1:nperms
+lambdas = [0.01 0.1 0.5 1 2 5 10];
+lam = {'0p01','0p1','0p5','1','2','5','10'};
 
-    indices = cvpartition(size(As,3),'k',nfolds);
-                
-    for f = 1:nfolds
-        
-        test.indx = indices.test(f);
-        train.indx = indices.training(f);
-        
-        test.x = As(:,:,test.indx);
-        train.x = As(:,:,train.indx);
-        
-        test.y = Y(indices.test(f),1);
-        train.y = Y(indices.training(f),1);
-
-        % Call SpectralGBR with K=2
-        [testFit2_Fmat, testFit2_Fmat_list, testFit2_obj_seq, testFit2_EY_list, testFit2_rho_seq] = ...
-            SpectralGBR(train.y, train.x, K2, rho, beta, iter_max, fixedStepSize);
-
-        % Call SpectralGBR with K=3
-        [testFit3_Fmat, testFit3_Fmat_list, testFit3_obj_seq, testFit3_EY_list, testFit3_rho_seq] = ...
-            SpectralGBR(train.y, train.x, K3, rho, beta, iter_max, fixedStepSize);
-
-        for fm = 1:length(testFit2_Fmat_list)
-            EY_2(test.indx,fm,p) = AsByF(test.x,testFit2_Fmat_list{1,fm});
-            EY_3(test.indx,fm,p) = AsByF(test.x,testFit3_Fmat_list{1,fm});
-        end
-    end
+%% predict
+for l = 1:length(lambdas)
+    for p = 1:nperms
+        indices = cvpartition(size(As,3),'k',nfolds);
+        for f = 1:nfolds
     
-    % correlate estimated Y with actual Y
-    for fm = 1:length(testFit2_Fmat_list)
-        preds_k2(p,fm) = corr(Y,squeeze(EY_2(:,fm,p)));
-        preds_k3(p,fm) = corr(Y,squeeze(EY_3(:,fm,p)));
-    end
-
-    if p == 1
-        save('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/pred_1perm_k2_100iter.mat','preds_k2');
-        save('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/pred_1perm_k3_100iter.mat','preds_k3');
+            test.indx = indices.test(f);
+            train.indx = indices.training(f);
+    
+            test.x = As(:,:,test.indx);
+            train.x = As(:,:,train.indx);
+    
+            test.y = Y(indices.test(f),1);
+            train.y = Y(indices.training(f),1);
+    
+            % Call SpectralGBR with K=2 and k=3
+    %         [testFit2_Fmat, testFit2_Fmat_list, testFit2_obj_seq, testFit2_EY_list, testFit2_rho_seq] = ...
+    %             SpectralGBR(train.y, train.x, K2, rho, beta, iter_max, fixedStepSize, lambdas(l), LR);
+    
+            [testFit3_Fmat, testFit3_Fmat_list, testFit3_obj_seq, testFit3_EY_list, testFit3_rho_seq] = ...
+                SpectralGBR(train.y, train.x, K3, rho, beta, iter_max, fixedStepSize, lambdas(l), LR);
+    
+%             for fm = 1:length(testFit2_Fmat_list)
+%                 EY_2(test.indx,fm,l) = AsByF(test.x,testFit2_Fmat_list{1,fm});
+%                 results.parcelation_k2{fm,l} = testFit2_Fmat_list{1,fm};
+%             end
+    
+            for fm = 1:length(testFit3_Fmat_list)
+                EY_3(test.indx,fm,p) = AsByF(test.x,testFit3_Fmat_list{1,fm});
+                results.parcelation_k3{fm,p} = testFit3_Fmat_list{1,fm};
+            end
+        end
+    
+        % correlate estimated Y with actual Y
+%         for fm = 1:length(testFit2_Fmat_list)
+%             results.preds_k2(fm,l) = corr(Y,squeeze(EY_2(:,fm,l)));
+%         end
+        for fm = 1:length(testFit3_Fmat_list)
+            results.preds_k3(fm,p) = corr(Y,squeeze(EY_3(:,fm,l)));
+        end
+    
+        outfile = sprintf('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/compare_to_shen368/Nodes_1_through_8_k3_lambda_%s.mat',...
+            lam{l});
+        save(outfile,'results','-v7.3');
+        clear results
     end
 end
 
-% save('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/pred_10perms_k2_100iter.mat','preds_k2');
-% save('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/pred_10perms_k3_100iter.mat','preds_k3');
-% 

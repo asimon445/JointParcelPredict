@@ -12,10 +12,10 @@ all_d = dir([data_path, '*_REST_LR_GSR_preprocessed_output.nii.gz']);
 
 no_sub = length(all_d);
 
-load('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/JointParcelPredict-main/new_code/HCP_overlap_mask.mat');
-load('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/JointParcelPredict-main/new_code/Shen368_10network.mat');
+load('HCP_overlap_mask.mat');
+load('Shen368_10network.mat');
 
-Shen368 = load_untouch_nii('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/JointParcelPredict-main/new_code/Shen_368_2mm.nii.gz');
+Shen368 = load_untouch_nii('Shen_368_2mm.nii.gz');
 Shen368 = Shen368.img;
 
 coords_R = logical(false(91,109,91));
@@ -98,11 +98,8 @@ for i = 1:num_non_zero
         end
     end
 end
-
+figure; imagesc(neighbormat);
 total_neighbors = sum(neighbormat, 2);
-
-save('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/compare_to_shen368/neighbormat.mat','neighbormat');
-save('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/compare_to_shen368/total_neighbors.mat','total_neighbors');
 
 
 atlas_vec = reshape(Shen_subset_atlas,[(size(Shen_subset_atlas,1)*size(Shen_subset_atlas,2)*size(Shen_subset_atlas,3)),1]);

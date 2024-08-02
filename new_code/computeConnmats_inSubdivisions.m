@@ -1,5 +1,16 @@
-% This script computes the voxelwise connectivity matrices on just one
-% hemisphere at a time (no cerebellum or subcortical)
+% This script will prepare the voxel time series data to be inputted into
+% the joint parcellation-prediction algorithm. 
+%
+% It will do so by systematically dividing up the brain into smaller cubes
+% (14x14x14 voxels) and compute the voxelwise connectivity matrix for each
+% cube. This needs to be done because the full voxelwise connectivity
+% matrices are too big for the server to handle. 
+% 
+% Each division will be done hemisphere at a time, and will not include
+% cerebellar or subcortical voxels.
+%
+% The output will contain a 2744 x 2744 x n (n=number of subjects)
+% voxelwise connectivity matrix for each subregion (2744 is the number of 
 
 clc; clear; close all;
 
@@ -23,12 +34,6 @@ coords_L = logical(false(91,109,91));
 
 nodeIx = find(Shen368_10network(:,2) >= 1 & Shen368_10network(:,2) <= 8);
 
-% This is only for testing. It's for finding voxels that belong to only
-% this subset of Shen368 nodes, and building a mask on those. 
-Shen368_nodes = 1:8;
-Shen_subset_mask = logical(false(91,109,91));
-Shen_subset_atlas = zeros(91,109,91);
-
 for i = 1:size(Shen368, 1)
     for j = 1:size(Shen368, 2)
         for k = 1:size(Shen368, 3)
@@ -48,16 +53,6 @@ for i = 1:size(Shen368, 1)
                         coords_L(i,j,k) = true;
                     end
                     clear sideIx
-
-                    %% This chunk of code below is only used for testing. It
-                    % finds voxels that belong to only a subset of Shen368
-                    % nodes, and applies a mask on those. It's directly for
-                    % comparing Shen368 predictive power to our parcelation
-                    % scheme
-                    if ismember(thisvox_node,Shen368_nodes)
-                        Shen_subset_mask(i,j,k) = true;
-                        Shen_subset_atlas(i,j,k) = thisvox_node;
-                    end
                 end
             end
             clear thisvox_node
@@ -70,8 +65,6 @@ end
 
 clear side_ix coords_reduced nodeIx x_pos y_pos z_pos
 
-% this line is for testing on a subset of nodes
-[x_pos, y_pos, z_pos] = ind2sub(size(mask_all,1:3), find(Shen_subset_mask));
 
 num_non_zero = length(x_pos);
 neighbormat = zeros(num_non_zero,num_non_zero);
@@ -105,11 +98,6 @@ save('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict
 save('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/compare_to_shen368/total_neighbors.mat','total_neighbors');
 
 
-atlas_vec = reshape(Shen_subset_atlas,[(size(Shen_subset_atlas,1)*size(Shen_subset_atlas,2)*size(Shen_subset_atlas,3)),1]);
-atlas_vec(~any(atlas_vec,2),:) = [];
-atlas_vec = double(atlas_vec);
-
-save('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/compare_to_shen368/Shen368_reduced.mat','atlas_vec','-v7.3');
 
 %% 
 ix=0;
