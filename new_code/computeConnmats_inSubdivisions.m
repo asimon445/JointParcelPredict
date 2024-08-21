@@ -2,15 +2,15 @@
 % the joint parcellation-prediction algorithm. 
 %
 % It will do so by systematically dividing up the brain into smaller cubes
-% (14x14x14 voxels) and compute the voxelwise connectivity matrix for each
-% cube. This needs to be done because the full voxelwise connectivity
-% matrices are too big for the server to handle. 
+% and compute the voxelwise connectivity matrix for each cube. This needs
+% to be done because the full voxelwise connectivity matrices are too big
+% for the servers to handle. 
 % 
 % Each division will be done hemisphere at a time, and will not include
 % cerebellar or subcortical voxels.
 %
-% The output will contain a 2744 x 2744 x n (n=number of subjects)
-% voxelwise connectivity matrix for each subregion (2744 is the number of 
+% The output will contain a bunch of ~2-3000 x 2-3000 x n (n=number of 
+% subjects) voxelwise connectivity matrix for each subregion
 
 clc; clear; close all;
 
@@ -25,6 +25,7 @@ no_sub = length(all_d);
 
 load('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/JointParcelPredict-main/new_code/HCP_overlap_mask.mat');
 load('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/JointParcelPredict-main/new_code/Shen368_10network.mat');
+load('rmNodes.mat');
 
 Shen368 = load_untouch_nii('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/JointParcelPredict-main/new_code/Shen_368_2mm.nii.gz');
 Shen368 = Shen368.img;
@@ -32,7 +33,11 @@ Shen368 = Shen368.img;
 coords_R = logical(false(91,109,91));
 coords_L = logical(false(91,109,91));
 
-nodeIx = find(Shen368_10network(:,2) >= 1 & Shen368_10network(:,2) <= 8);
+overlap = 1; % overlap of 1 voxel on each end
+minsize = 2000;   % the minimum number of voxels to use in a subvolume. If it's less than this, combine it with the next subvolume
+maxsize = 3200;
+
+nodeIx = find(~ismember(Shen368_10network(:,1),rmNodes)); 
 
 for i = 1:size(Shen368, 1)
     for j = 1:size(Shen368, 2)
@@ -60,42 +65,7 @@ for i = 1:size(Shen368, 1)
     end
 end
 
-[x_pos_R, y_pos_R, z_pos_R] = ind2sub(size(mask_all,1:3), find(coords_R));
-[x_pos_L, y_pos_L, z_pos_L] = ind2sub(size(mask_all,1:3), find(coords_L));
-
-clear side_ix coords_reduced nodeIx x_pos y_pos z_pos
-
-
-num_non_zero = length(x_pos);
-neighbormat = zeros(num_non_zero,num_non_zero);
-
-for i = 1:num_non_zero
-    for j = 1:num_non_zero
-        if i ~= j
-            % Check if positions are neighbors (26 possibilities)
-            if abs(x_pos(i) - x_pos(j)) == 1 && abs(y_pos(i) - y_pos(j)) == 0 && abs(z_pos(i) - z_pos(j)) == 0
-                neighbormat(i, j) = 1;
-            elseif abs(x_pos(i) - x_pos(j)) == 0 && abs(y_pos(i) - y_pos(j)) == 1 && abs(z_pos(i) - z_pos(j)) == 0
-                neighbormat(i, j) = 1;
-            elseif abs(x_pos(i) - x_pos(j)) == 0 && abs(y_pos(i) - y_pos(j)) == 0 && abs(z_pos(i) - z_pos(j)) == 1
-                neighbormat(i, j) = 1;
-            elseif abs(x_pos(i) - x_pos(j)) == 1 && abs(y_pos(i) - y_pos(j)) == 1 && abs(z_pos(i) - z_pos(j)) == 0
-                neighbormat(i, j) = 1;
-            elseif abs(x_pos(i) - x_pos(j)) == 1 && abs(y_pos(i) - y_pos(j)) == 0 && abs(z_pos(i) - z_pos(j)) == 1
-                neighbormat(i, j) = 1;
-            elseif abs(x_pos(i) - x_pos(j)) == 0 && abs(y_pos(i) - y_pos(j)) == 1 && abs(z_pos(i) - z_pos(j)) == 1
-                neighbormat(i, j) = 1;
-            elseif abs(x_pos(i) - x_pos(j)) == 1 && abs(y_pos(i) - y_pos(j)) == 1 && abs(z_pos(i) - z_pos(j)) == 1
-                neighbormat(i, j) = 1;
-            end
-        end
-    end
-end
-
-total_neighbors = sum(neighbormat, 2);
-
-save('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/compare_to_shen368/neighbormat.mat','neighbormat');
-save('/data22/mri_group/dustinlab_data/dustinlab/Documents/AJ/JointParcelPredict_dev/compare_to_shen368/total_neighbors.mat','total_neighbors');
+clear side_ix nodeIx 
 
 
 
